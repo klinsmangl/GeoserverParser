@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor de Requisições GeoServer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f4f3f0;
+      --surface: #ffffff;
+      --border: #e2e0dc;
+      --border-hover: #c8c5bf;
+      --ink: #111110;
+      --muted: #8b8985;
+      --faint: #b8b4ae;
+      --accent: #1da854;
+      --accent-2: #178f46;
+      --accent-bg: #f0fdf6;
+      --danger: #d13d1e;
+      --danger-bg: #fff5f3;
+      --sans: 'Sora', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, monospace;
+      --r: 10px;
+      --shadow: 0 1px 3px #0000000d, 0 1px 2px #00000008;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 56px 20px 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 740px;
+      margin: 0 auto;
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.empty-state .wrap {
+      transform: translateY(25vh);
+    }
+
+    /* ── title ── */
+    h1 {
+      font-size: clamp(36px, 6.5vw, 54px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 32px;
+    }
+
+    h1 .accent {
+      color: var(--accent);
+    }
+
+    /* ── url bar ── */
+    .urlbar {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 5px 5px 5px 16px;
+      gap: 2px;
+      box-shadow: var(--shadow);
+      transition: border-color .15s;
+    }
+
+    .urlbar:focus-within {
+      border-color: var(--accent);
+    }
+
+    input#url {
+      flex: 1 1 0;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+      caret-color: var(--accent);
+    }
+
+    input#url::placeholder {
+      color: var(--faint);
+    }
+
+    .urlbar-sep {
+      width: 1px;
+      height: 22px;
+      background: var(--border);
+      margin: 0 4px;
+      flex: none;
+    }
+
+    .ubtn {
+      width: 36px;
+      height: 36px;
+      flex: none;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .12s, color .12s;
+    }
+
+    .ubtn:hover {
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    .ubtn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+
+    .ubtn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ── status line ── */
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      min-height: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .status .svc {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      background: var(--accent-bg);
+      color: var(--accent-2);
+      border: 1px solid #a7f3c2;
+      border-radius: 5px;
+      padding: 1px 7px;
+    }
+
+    .status .warn {
+      color: var(--danger);
+    }
+
+
+
+    /* ── params header ── */
+    .params-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 28px 0 10px;
+    }
+
+    .params-header span {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .params-header .cnt {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--border);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 1px 8px;
+      font-weight: 400;
+    }
+
+    /* ── rows ── */
+    .rows {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 36px minmax(108px, 0.30fr) 1fr 36px 36px;
+      gap: 8px;
+      align-items: start;
+    }
+
+    /* shared field style */
+    .row input,
+    .row .k,
+    .path-seg {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      outline: none;
+      width: 100%;
+      color: var(--ink);
+      transition: border-color .13s;
+      box-shadow: var(--shadow);
+    }
+
+    .row input:focus,
+    .path-seg:focus {
+      border-color: var(--accent);
+    }
+
+    .row .k {
+      font-family: var(--sans);
+      font-weight: 600;
+    }
+
+    .row .v,
+    .row .segi {
+      font-family: var(--mono);
+    }
+
+    .row.bad input {
+      border-color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    /* vals cell */
+    .vals {
+      min-width: 0;
+    }
+
+    .vals .v {
+      display: block;
+    }
+
+    /* multi-value */
+    .multi {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .seg {
+      flex: 1 1 90px;
+      min-width: 72px;
+      position: relative;
+    }
+
+    .seg .segi {
+      padding-right: 10px;
+    }
+
+    .segdel {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      z-index: 2;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+
+    .segdel svg {
+      width: 9px;
+      height: 9px;
+    }
+
+    .row:hover .segdel,
+    .seg:hover .segdel,
+    .segdel:focus {
+      opacity: 1;
+    }
+
+    .path-sep {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 14px;
+      user-select: none;
+    }
+
+    /* row action buttons */
+    .row-plus,
+    .row-del,
+    .row-toggle {
+      width: 36px;
+      height: 36px;
+      flex: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: .13s;
+      box-shadow: var(--shadow);
+    }
+
+    .row-plus {
+      border: 1.5px dashed var(--border);
+      background: transparent;
+      color: var(--faint);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .row-plus:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .row-del {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--faint);
+    }
+
+    .row-del:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .row-del svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .row-toggle {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--faint);
+    }
+
+    .row-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .row-toggle svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    /* commented row styling */
+    .row.commented {
+      opacity: 0.55;
+    }
+
+    .row.commented input {
+      text-decoration: line-through;
+      color: var(--muted);
+      background: var(--bg);
+      border-style: dashed;
+    }
+
+    .row.commented .row-toggle {
+      color: var(--muted);
+      border-color: var(--border);
+      background: var(--bg);
+    }
+
+    /* empty note */
+    .empty-note {
+      font-size: 13px;
+      color: var(--faint);
+      padding: 8px 2px;
+      font-family: var(--mono);
+    }
+
+    /* add param */
+    #btnAdd {
+      width: 100%;
+      margin-top: 8px;
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--faint);
+      padding: 12px;
+      cursor: pointer;
+      font-family: var(--sans);
+      font-size: 18px;
+      line-height: 1;
+      transition: .13s;
+    }
+
+    #btnAdd:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #btnAdd:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+      border-color: var(--border);
+      color: var(--faint);
+    }
+
+    /* ── motion ─────────────────────────────────────────── */
+    @keyframes loadIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes rowIn {
+      from {
+        opacity: 0;
+        transform: translateY(7px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: scale(.94);
+      }
+
+      60% {
+        opacity: 1;
+        transform: scale(1.02);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* one-shot reveal on page load */
+    h1,
+    .urlbar,
+    .status,
+    .params-header,
+    .rows,
+    #btnAdd {
+      animation: loadIn .5s cubic-bezier(.22, .61, .36, 1) both;
+    }
+
+    h1 {
+      animation-delay: .02s;
+    }
+
+    .urlbar {
+      animation-delay: .10s;
+    }
+
+    .status {
+      animation-delay: .16s;
+    }
+
+    .params-header {
+      animation-delay: .22s;
+    }
+
+    .rows {
+      animation-delay: .28s;
+    }
+
+    #btnAdd {
+      animation-delay: .34s;
+    }
+
+    /* staggered field entrance (apenas na primeira leitura de uma URL) */
+    .row.anim {
+      animation: rowIn .42s cubic-bezier(.22, .61, .36, 1) both;
+      animation-delay: calc(var(--i, 0) * 38ms);
+    }
+
+    .just-added {
+      animation: popIn .34s cubic-bezier(.34, 1.56, .64, 1) both;
+    }
+
+    /* url bar */
+    .urlbar {
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .urlbar:focus-within {
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+
+    /* icon buttons */
+    .ubtn {
+      transition: background .14s, color .14s, transform .14s;
+    }
+
+    .ubtn svg {
+      transition: transform .16s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .ubtn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .ubtn:hover:not(:disabled) svg {
+      transform: scale(1.14);
+    }
+
+    .ubtn:active:not(:disabled) {
+      transform: translateY(0) scale(.92);
+    }
+
+    /* inputs: soft focus ring */
+    .row input,
+    .path-seg {
+      transition: border-color .14s, box-shadow .14s, transform .14s;
+    }
+
+    .row input:focus,
+    .path-seg:focus {
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+
+    /* row + / × / eye */
+    .row-plus,
+    .row-del,
+    .row-toggle {
+      transition: border-color .14s, color .14s, background .14s, transform .16s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .row-plus:hover {
+      transform: scale(1.09);
+    }
+
+    .row-del:hover {
+      transform: scale(1.09);
+    }
+
+    .row-toggle:hover {
+      transform: scale(1.09);
+    }
+
+    .row-plus:active,
+    .row-del:active,
+    .row-toggle:active {
+      transform: scale(.9);
+    }
+
+    /* add param */
+    #btnAdd {
+      transition: border-color .15s, color .15s, background .15s, transform .15s;
+    }
+
+    #btnAdd:hover:not(:disabled) {
+      background: var(--accent-bg);
+      transform: translateY(-1px);
+    }
+
+    #btnAdd:active:not(:disabled) {
+      transform: translateY(0) scale(.995);
+    }
+
+    /* segment delete badge: pops in on row hover */
+    .segdel {
+      opacity: 0;
+      transform: scale(.5);
+      transition: opacity .14s, transform .16s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .row:hover .segdel {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .segdel:hover {
+      transform: scale(1.2) !important;
+      background: var(--danger);
+    }
+
+    /* ── hybrid state transitions ── */
+    /* hide parameters & status bar when empty-state is active */
+    .empty-state .params-header,
+    .empty-state .rows,
+    .empty-state #btnAdd,
+    .empty-state .status {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(20px) !important;
+      max-height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border: none !important;
+    }
+
+    .params-header,
+    .rows,
+    #btnAdd,
+    .status {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.4s ease, margin 0.4s ease, padding 0.4s ease;
+    }
+
+    /* demo link styles */
+    .demo-wrapper {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.3s ease;
+    }
+
+    .empty-state .demo-wrapper {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    body:not(.empty-state) .demo-wrapper {
+      opacity: 0;
+      pointer-events: none;
+      max-height: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .demo-link {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--sans);
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .demo-link:hover {
+      background: var(--accent-bg);
+      color: var(--accent-2);
+      text-decoration: underline;
+    }
+
+    /* clear button style */
+    .clear-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--faint);
+      display: none;
+      /* managed by JS */
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 50%;
+      margin-right: 4px;
+      transition: background 0.12s, color 0.12s, transform 0.12s;
+      flex: none;
+    }
+
+    .clear-btn:hover {
+      background: var(--bg);
+      color: var(--ink);
+      transform: scale(1.08);
+    }
+
+    .clear-btn:active {
+      transform: scale(0.92);
+    }
+
+    .clear-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* accessibility */
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <h1>Editor de requisições <span class="accent">GeoServer</span></h1>
+
+    <div class="urlbar">
+      <input id="url" type="text" spellcheck="false" placeholder="Cole aqui para começar" autocomplete="off">
+      <button class="clear-btn" id="btnClear" title="Limpar URL">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div class="urlbar-sep"></div>
+      <button class="ubtn" id="btnClip" title="Copiar / Colar">
+        <!-- clipboard icon (muda dinamicamente) -->
+        <svg id="icoClip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      </button>
+      <button class="ubtn" id="btnCode" title="Decodificar / Codificar" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M8 9l-4 4 4 4M16 9l4 4-4 4" />
+        </svg>
+      </button>
+      <button class="ubtn" id="btnOpen" title="Abrir em nova aba" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" />
+          <line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="demo-wrapper" id="demoWrapper">
+      <span>Novo no editor?</span>
+      <button id="btnDemo" class="demo-link">💡 Carregar uma URL de exemplo</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="params-header">
+      <span>Parâmetros</span>
+      <span class="cnt" id="pcount">0</span>
+    </div>
+
+    <div class="rows" id="rows">
+      <div class="empty-note">Nenhum parâmetro.</div>
+    </div>
+
+    <button id="btnAdd" disabled>+</button>
+
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // ── refs ───────────────────────────────────────────────────────────────
+      const urlEl = document.getElementById("url");
+      const rowsEl = document.getElementById("rows");
+      const statusEl = document.getElementById("status");
+      const pcountEl = document.getElementById("pcount");
+      const btnClip = document.getElementById("btnClip");
+      const btnCode = document.getElementById("btnCode");
+      const btnOpen = document.getElementById("btnOpen");
+      const btnAdd = document.getElementById("btnAdd");
+      const icoClip = document.getElementById("icoClip");
+      const btnClear = document.getElementById("btnClear");
+      const btnDemo = document.getElementById("btnDemo");
+
+      const SVG_PASTE = `<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>`;
+      const SVG_COPY = `<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>`;
+      const SVG_X = `<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>`;
+      const SVG_EYE = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+      const SVG_EYE_OFF = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+
+      // ── validation ─────────────────────────────────────────────────────────
+      function isValidUrl(s) {
+        s = (s || "").trim();
+        if (!/^https?:\/\//i.test(s)) return false;
+        try { return !!new URL(s).host; } catch { return false; }
+      }
+
+      // ── parse / build ──────────────────────────────────────────────────────
+      function parseUrl(url) {
+        url = (url || "").trim();
+        const qi = url.indexOf("?");
+        let base = "", query = "";
+        if (qi === -1) { base = url; }
+        else { base = url.slice(0, qi); query = url.slice(qi + 1); }
+        const params = [];
+        if (query.length) {
+          query.split("&").forEach(seg => {
+            if (!seg) { params.push({ key: "", value: "", empty: true }); return; }
+            const eq = seg.indexOf("=");
+            if (eq === -1) params.push({ key: seg, value: null });
+            else params.push({ key: seg.slice(0, eq), value: seg.slice(eq + 1) });
+          });
+        }
+        return { base, params };
+      }
+
+      function buildUrl(base, params) {
+        const q = params
+          .filter(p => !(p.empty && !p.key && !p.value))
+          .map(p => p.value === null ? p.key : p.key + "=" + p.value)
+          .join("&");
+        if (!q) return base;
+        return base + (base.includes("?") ? "&" : "?") + q;
+      }
+
+      // ── separator detection ────────────────────────────────────────────────
+      function detectSep(v) {
+        if (v == null) return null;
+        if (v.indexOf(",") !== -1) return ",";
+        const m = v.match(/%2c/i);
+        return m ? m[0] : null;
+      }
+
+      // ── server / service ───────────────────────────────────────────────────
+      // ── base url parsing ───────────────────────────────────────────────────
+      function parseBaseUrl(base) {
+        let protocol = "";
+        let host = "";
+        let segments = [];
+        try {
+          const u = new URL(base);
+          protocol = u.protocol;
+          host = u.host;
+          segments = u.pathname.split("/").filter(Boolean);
+        } catch {
+          const m = base.match(/^(https?:)\/\/([^/?#]+)([^?#]*)/i);
+          if (m) {
+            protocol = m[1];
+            host = m[2];
+            segments = (m[3] || "").split("/").filter(Boolean);
+          }
+        }
+        return { protocol, host, segments };
+      }
+
+      function diagnose(rawUrl, params) {
+        const issues = [];
+        if (/\s/.test(rawUrl)) issues.push("espaço(s) não codificado(s)");
+        params.forEach(p => {
+          if (p.empty) issues.push("segmento vazio (& solto)");
+          else if (p.value === null) issues.push(`"${p.key}" sem valor`);
+          else if (!p.key) issues.push("valor sem chave");
+        });
+        const keys = params.filter(p => p.key && !p.empty).map(p => p.key.toLowerCase());
+        [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))]
+          .forEach(k => issues.push(`chave duplicada: "${k}"`));
+        return issues;
+      }
+
+      // ── encode / decode ────────────────────────────────────────────────────
+      const hasEncoding = s => /%[0-9A-Fa-f]{2}/.test(s);
+      const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
+
+      function transformUrl(url, mode) {
+        const { base, params } = parseUrl(url);
+        const fn = mode === "decode" ? safeDecode : encodeURIComponent;
+        const np = params.map(p => ({ ...p, value: p.value == null ? p.value : fn(p.value) }));
+        const nb = mode === "decode" ? safeDecode(base) : base;
+        return buildUrl(nb, np);
+      }
+
+      // ── collect params from DOM ────────────────────────────────────────────
+      function collectParams() {
+        return [...rowsEl.querySelectorAll(".row")].map(r => {
+          const key = r.querySelector(".k").value;
+          const commented = r.classList.contains("commented");
+          const multi = r.querySelector(".multi");
+          if (multi) {
+            const sep = r.dataset.sep || ",";
+            const segs = [...multi.querySelectorAll(".segi")].map(s => s.value);
+            return { key, value: segs.join(sep), commented };
+          }
+          const vEl = r.querySelector(".v");
+          const loose = r.dataset.loose === "true" && vEl.value === "";
+          return { key, value: loose ? null : vEl.value, commented };
+        });
+      }
+
+      // ── sync list → url (no re-render, keeps focus) ────────────────────────
+      function syncFromList() {
+        const params = collectParams();
+        const activeParams = params.filter(p => !p.commented);
+        const { base } = parseUrl(urlEl.value);
+        urlEl.value = buildUrl(base, activeParams);
+        renderStatus(urlEl.value);
+      }
+
+      // ── status bar path helpers ──────────────────────────────────────────
+      function collectPathSegments() {
+        return [...statusEl.querySelectorAll(".path-seg")].map(input => input.value);
+      }
+
+      function syncFromStatus() {
+        const parts = collectPathSegments();
+        if (!parts.length) return;
+        const protocol = statusEl.dataset.protocol || "http:";
+        const host = parts[0] || "";
+        const pathname = parts.slice(1).join("/");
+        const base = protocol + "//" + host + (pathname ? "/" + pathname : "");
+
+        const params = collectParams();
+        const activeParams = params.filter(p => !p.commented);
+
+        urlEl.value = buildUrl(base, activeParams);
+        updateStatusMetaOnly(urlEl.value);
+      }
+
+      function updateStatusMetaOnly(rawUrl) {
+        if (!isValidUrl(rawUrl)) return;
+        const { params } = parseUrl(rawUrl);
+        const issues = diagnose(rawUrl, params);
+
+        const metaEl = statusEl.querySelector(".status-meta");
+        if (metaEl) {
+          let html = "";
+          if (issues.length) {
+            html += `<span class="warn">⚠ ${issues.join("; ")}</span>`;
+          }
+          metaEl.innerHTML = html;
+        }
+      }
+
+      function bindPathEvents() {
+        statusEl.querySelectorAll(".path-seg").forEach(input => {
+          input.addEventListener("input", () => {
+            syncFromStatus();
+          });
+        });
+
+        statusEl.querySelectorAll(".path-segdel").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const seg = btn.closest(".seg");
+            const prev = seg.previousElementSibling;
+            const next = seg.nextElementSibling;
+            if (next && next.classList.contains("path-sep")) {
+              next.remove();
+            } else if (prev && prev.classList.contains("path-sep")) {
+              prev.remove();
+            }
+            seg.remove();
+
+            syncFromStatus();
+            renderStatus(urlEl.value);
+          });
+        });
+      }
+
+      function updateEmptyState() {
+        const isEmpty = !urlEl.value.trim();
+        if (isEmpty) {
+          document.body.classList.add("empty-state");
+          btnClear.style.display = "none";
+        } else {
+          document.body.classList.remove("empty-state");
+          btnClear.style.display = "flex";
+        }
+      }
+
+      // ── render status line ─────────────────────────────────────────────────
+      function renderStatus(rawUrl) {
+        updateEmptyState();
+        const empty = !rawUrl.trim();
+        if (empty) { statusEl.innerHTML = ""; setControls(false); return; }
+        if (!isValidUrl(rawUrl)) {
+          statusEl.innerHTML = `<span class="warn">⚠ URL inválida — deve começar com http:// ou https://</span>`;
+          setControls(false);
+          pcountEl.textContent = "0";
+          return;
+        }
+        const { base, params } = parseUrl(rawUrl);
+        const { protocol, host, segments } = parseBaseUrl(base);
+        const issues = diagnose(rawUrl, params);
+        const realParams = params.filter(p => !p.empty);
+
+        pcountEl.textContent = realParams.length;
+        const domParams = collectParams();
+        if (domParams.some(p => p.commented)) {
+          pcountEl.textContent = `${realParams.length}/${domParams.length}`;
+        }
+        setControls(true);
+        btnCode.title = hasEncoding(rawUrl) ? "Decodificar" : "Codificar";
+
+        statusEl.dataset.protocol = protocol;
+
+        let html = "";
+        if (host) {
+          const parts = [host, ...segments];
+          const segHtmls = parts.map((part, index) => {
+            const showDel = parts.length > 1;
+            return (
+              `<div class="seg">` +
+              `<input class="segi path-seg" value="${escAttr(part)}" placeholder="segmento" spellcheck="false" autocomplete="off">` +
+              (showDel ? `<button class="segdel path-segdel" title="Remover segmento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ``) +
+              `</div>`
+            );
+          });
+          html += `<div class="path-segs" style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap; width: 100%;">` +
+            segHtmls.join(`<span class="path-sep">/</span>`) +
+            `</div>`;
+        }
+
+        html += `<div class="status-meta" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">`;
+        if (issues.length) {
+          html += `<span class="warn">⚠ ${issues.join("; ")}</span>`;
+        }
+        html += `</div>`;
+
+        statusEl.innerHTML = html;
+        bindPathEvents();
+      }
+
+      function setControls(valid) {
+        btnCode.disabled = !valid;
+        btnOpen.disabled = !valid;
+        btnAdd.disabled = !valid;
+        updateClipIco();
+      }
+
+      function updateClipIco() {
+        const empty = !urlEl.value.trim();
+        icoClip.innerHTML = empty ? SVG_PASTE : SVG_COPY;
+        btnClip.title = empty ? "Colar" : "Copiar";
+      }
+
+      const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const escAttr = s => String(s).replace(/"/g, "&quot;");
+
+      // motion helpers
+      let listPopulated = false;          // true quando a lista já tem campos visíveis
+      function pop(el) {
+        if (!el) return;
+        el.classList.add("just-added");
+        el.addEventListener("animationend", () => el.classList.remove("just-added"), { once: true });
+      }
+
+      // ── render list ────────────────────────────────────────────────────────
+      function renderList(params, animate = false) {
+        rowsEl.innerHTML = "";
+        if (!params.length) {
+          rowsEl.innerHTML = '<div class="empty-note">Nenhum parâmetro identificado.</div>';
+          bindRowEvents();
+          return;
+        }
+
+        params.forEach((p, i) => {
+          const bad = p.empty || p.value === null || p.key === "";
+          const sep = detectSep(p.value);
+          const multi = sep !== null;
+
+          const row = document.createElement("div");
+          row.className = "row" + (bad ? " bad" : "") + (p.commented ? " commented" : "");
+          row.dataset.loose = p.value === null ? "true" : "false";
+          if (multi) row.dataset.sep = sep;
+          if (animate) { row.classList.add("anim"); row.style.setProperty("--i", i); }
+
+          // value cell
+          let valHtml;
+          if (multi) {
+            const segs = p.value.split(sep);
+            const showDel = segs.length > 1;
+            const segHtml = segs.map(s =>
+              `<div class="seg">` +
+              `<input class="segi" value="${escAttr(s)}" placeholder="valor" spellcheck="false" autocomplete="off">` +
+              (showDel ? `<button class="segdel" title="Remover segmento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ``) +
+              `</div>`
+            ).join("");
+            valHtml = `<div class="multi">${segHtml}</div>`;
+          } else {
+            valHtml = `<input class="v" value="${escAttr(p.value == null ? "" : p.value)}" placeholder="valor" spellcheck="false" autocomplete="off">`;
+          }
+
+          row.innerHTML =
+            `<button class="row-toggle" title="${p.commented ? 'Ativar parâmetro' : 'Desativar parâmetro'}">` +
+            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">` +
+            `${p.commented ? SVG_EYE_OFF : SVG_EYE}` +
+            `</svg>` +
+            `</button>` +
+            `<input class="k" value="${escAttr(p.key)}" placeholder="chave" spellcheck="false" autocomplete="off">` +
+            `<div class="vals">${valHtml}</div>` +
+            `<button class="row-plus" title="Adicionar segmento">+</button>` +
+            `<button class="row-del" title="Remover parâmetro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${SVG_X}</svg></button>`;
+
+          rowsEl.appendChild(row);
+        });
+
+        if (animate) {
+          rowsEl.querySelectorAll(".row.anim").forEach(r =>
+            r.addEventListener("animationend", () => {
+              r.classList.remove("anim");
+              r.style.removeProperty("--i");
+            }, { once: true })
+          );
+        }
+
+        bindRowEvents();
+      }
+
+      function reRenderRows() {
+        renderList(collectParams());
+      }
+
+      // ── sync url → list (full re-render) ──────────────────────────────────
+      function syncFromUrl() {
+        const raw = urlEl.value;
+        renderStatus(raw);
+        if (!raw.trim() || !isValidUrl(raw)) {
+          rowsEl.innerHTML = '<div class="empty-note">Nenhum parâmetro.</div>';
+          listPopulated = false;
+          return;
+        }
+        const params = parseUrl(raw).params;
+        const animate = !listPopulated && params.length > 0;
+        listPopulated = params.length > 0;
+        renderList(params, animate);
+      }
+
+      // ── event binding ──────────────────────────────────────────────────────
+      function bindRowEvents() {
+        rowsEl.querySelectorAll(".row").forEach(row => {
+
+          // toggle comment status
+          row.querySelector(".row-toggle").addEventListener("click", () => {
+            row.classList.toggle("commented");
+            syncFromList();
+            reRenderRows();
+          });
+
+          // live typing → sync url + status
+          row.querySelectorAll("input").forEach(inp => {
+            inp.addEventListener("input", () => {
+              if (inp.classList.contains("v")) row.dataset.loose = "false";
+              row.classList.remove("bad");
+              syncFromList();
+            });
+          });
+
+          // remove whole row
+          row.querySelector(".row-del").addEventListener("click", () => {
+            row.remove();
+            syncFromList();
+            reRenderRows();
+          });
+
+          // remove one segment (badge ×)
+          row.querySelectorAll(".segdel").forEach(btn => btn.addEventListener("click", () => {
+            btn.closest(".seg")?.remove();
+            syncFromList();
+            reRenderRows();
+          }));
+
+          // add segment (row + button)
+          row.querySelector(".row-plus").addEventListener("click", () => {
+            const idx = [...rowsEl.children].indexOf(row);
+            const sep = row.dataset.sep || ",";
+            const multi = row.querySelector(".multi");
+
+            if (multi) {
+              // append empty seg to DOM, sync, re-render
+              const seg = document.createElement("div");
+              seg.className = "seg";
+              seg.innerHTML = `<input class="segi" value="" placeholder="valor" spellcheck="false" autocomplete="off">`;
+              multi.appendChild(seg);
+            } else {
+              // convert single → multi: append sep to .v value
+              const vEl = row.querySelector(".v");
+              if (vEl) { vEl.value += sep; row.dataset.loose = "false"; }
+            }
+
+            syncFromList();
+            reRenderRows();
+            const newRow = rowsEl.children[idx];
+            const segis = newRow?.querySelectorAll(".segi, .v");
+            if (segis?.length) {
+              const lastSegi = segis[segis.length - 1];
+              pop(lastSegi.closest(".seg") || lastSegi);
+              lastSegi.focus();
+            }
+          });
+        });
+      }
+
+      // ── global events ──────────────────────────────────────────────────────
+      urlEl.addEventListener("input", syncFromUrl);
+
+      btnClip.addEventListener("click", async () => {
+        if (!urlEl.value.trim()) {        // COLAR
+          try {
+            const t = (await navigator.clipboard.readText() || "").trim();
+            if (!t) return;
+            if (!isValidUrl(t)) { flashBtn(btnClip, "Inválida"); return; }
+            urlEl.value = t;
+            syncFromUrl();
+          } catch {
+            urlEl.focus();
+            flashBtn(btnClip, "Ctrl+V");
+          }
+        } else {                          // COPIAR
+          try {
+            await navigator.clipboard.writeText(urlEl.value);
+          } catch {
+            urlEl.select(); document.execCommand("copy");
+          }
+          flashBtn(btnClip, "Copiado ✓");
+        }
+      });
+
+      btnCode.addEventListener("click", () => {
+        if (!isValidUrl(urlEl.value)) return;
+        const mode = hasEncoding(urlEl.value) ? "decode" : "encode";
+        const fn = mode === "decode" ? safeDecode : encodeURIComponent;
+
+        const params = collectParams();
+        params.forEach(p => {
+          if (p.value !== null) p.value = fn(p.value);
+        });
+
+        const { base } = parseUrl(urlEl.value);
+        const newBase = mode === "decode" ? safeDecode(base) : base;
+
+        urlEl.value = buildUrl(newBase, params.filter(p => !p.commented));
+        renderStatus(urlEl.value);
+        renderList(params);
+      });
+
+      btnOpen.addEventListener("click", () => {
+        const u = urlEl.value.trim();
+        if (/^https?:\/\//i.test(u)) window.open(u, "_blank", "noopener");
+      });
+
+      btnAdd.addEventListener("click", () => {
+        if (!isValidUrl(urlEl.value)) return;
+        const params = collectParams();
+        params.push({ key: "", value: "", commented: false });
+
+        const { base } = parseUrl(urlEl.value);
+        urlEl.value = buildUrl(base, params.filter(p => !p.commented));
+        renderStatus(urlEl.value);
+        renderList(params);
+
+        const lastRow = rowsEl.querySelector(".row:last-child");
+        pop(lastRow);
+        lastRow?.querySelector(".k")?.focus();
+      });
+
+      function flashBtn(btn, text) {
+        const orig = btn.innerHTML;
+        btn.textContent = text;
+        setTimeout(() => { btn.innerHTML = orig; }, 1200);
+      }
+
+      // ── clear url ──
+      btnClear.addEventListener("click", () => {
+        urlEl.value = "";
+        syncFromUrl();
+        urlEl.focus();
+      });
+
+      // ── load demo url ──
+      const DEMO_URL = "https://geoservicos.ibge.gov.br/geoserver/CGMAT/wms?service=WMS&version=1.1.0&request=GetMap&layers=CGMAT%3Aqg_2025_020_uf_agreg&bbox=-74.2161712646484%2C-33.9462928771973%2C-28.6219253540039%2C5.466956615448&width=768&height=663&srs=EPSG%3A4674&styles=&format=application/openlayers";
+
+      btnDemo.addEventListener("click", () => {
+        urlEl.value = DEMO_URL;
+        syncFromUrl();
+      });
+
+      // ── init ───────────────────────────────────────────────────────────────
+      updateClipIco();
+      renderStatus("");
+    })();
+  </script>
+</body>
+
+</html>
