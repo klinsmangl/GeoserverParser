@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Publicador de camadas GeoServer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="login-state">
+  <nav class="main-navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <span class="accent">GeoServer</span> Tools
+      </div>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          Editor de Requisições
+        </a>
+        <a href="publicador-geoserver.html" class="nav-link active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          Publicador de Camadas
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+
+    <h1>Publicador de camadas <span class="accent">GeoServer</span></h1>
+
+    <!-- ============ TELA 1: LOGIN ============ -->
+    <section id="screen-login" class="stage">
+      <p class="lede">Conecte-se ao seu GeoServer para começar.</p>
+
+      <form id="login-form" autocomplete="off">
+        <div class="field">
+          <label for="url">URL base</label>
+          <div class="url-input-container">
+            <input type="url" id="url" class="mono" placeholder="http://servidor:8080/geoserver" spellcheck="false"
+              required>
+            <button class="clear-btn" id="btn-clear-url" type="button" title="Limpar URL">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field">
+            <label for="user">Usuário</label>
+            <input type="text" id="user" placeholder="admin" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <label for="pass">Senha</label>
+            <input type="password" id="pass" placeholder="••••••••" autocomplete="current-password" required>
+          </div>
+        </div>
+        <button class="btn" type="submit" id="login-btn">Conectar</button>
+        <div id="login-error" class="msg err hidden"></div>
+      </form>
+    </section>
+
+    <!-- ============ TELA 2: PUBLICAÇÃO ============ -->
+    <section id="screen-publish" class="stage hidden">
+      <div class="connbar">
+        <div class="who">
+          <span class="dot"></span>
+          <span class="url" id="conn-url"></span>
+        </div>
+        <button class="connbar-logout" id="logout-btn" type="button">Sair</button>
+      </div>
+
+      <form id="publish-form" autocomplete="off">
+        <div class="field">
+          <label for="workspace">Workspace</label>
+          <select id="workspace" required></select>
+        </div>
+
+        <div class="field">
+          <label for="file">Arquivo</label>
+          <div class="filebox" id="filebox">
+            <input type="file" id="file" accept=".zip,.gpkg,.tif,.tiff">
+            <div id="file-empty">
+              <span class="ph">Clique ou arraste um arquivo aqui</span>
+              <div class="formats">.zip (Shapefile) · .gpkg (GeoPackage) · .tif / .tiff (GeoTIFF)</div>
+            </div>
+            <div id="file-chosen" class="hidden">
+              <div class="fname" id="file-name"></div>
+              <div class="fmeta" id="file-meta"></div>
+            </div>
+            <button class="filebox-del hidden" id="file-clear" type="button" title="Remover arquivo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="storename">Nome da camada</label>
+          <input type="text" id="storename" class="mono" spellcheck="false" required disabled>
+        </div>
+
+        <button class="btn" type="submit" id="publish-btn" disabled>Publicar</button>
+
+        <div id="progress" class="progress hidden">
+          <div class="track">
+            <div class="bar" id="progress-bar"></div>
+          </div>
+          <div class="pct" id="progress-pct">Enviando… 0%</div>
+        </div>
+
+        <div id="publish-error" class="msg err hidden"></div>
+        <div id="publish-info" class="msg info hidden"></div>
+      </form>
+
+      <!-- Picker de camadas (GeoPackage com várias tabelas) -->
+      <div id="picker-wrap" class="hidden">
+        <div class="picker">
+          <div class="head">Camadas encontradas no GeoPackage</div>
+          <div id="picker-list"></div>
+        </div>
+        <button class="btn" id="picker-confirm" type="button" style="margin-top:14px">Publicar selecionadas</button>
+      </div>
+
+      <!-- Resultados -->
+      <div id="results"></div>
+    </section>
+
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // ── refs / helpers ─────────────────────────────────────────────────────
+      const $ = id => document.getElementById(id);
+      const show = el => el.classList.remove("hidden");
+      const hide = el => el.classList.add("hidden");
+      const showMsg = (el, msg) => { el.textContent = msg; show(el); };
+
+      function toBase64Utf8(str) {
+        const bytes = new TextEncoder().encode(str);
+        let binary = "";
+        for (const b of bytes) binary += String.fromCharCode(b);
+        return btoa(binary);
+      }
+
+      // ── formatos suportados pelo endpoint REST file.{ext} do GeoServer ────
+      const FORMATS = {
+        zip: { kind: "vector", ext: "shp", contentType: "application/zip", label: "Shapefile" },
+        gpkg: { kind: "gpkg", ext: "gpkg", contentType: "application/geopackage+sqlite3", label: "GeoPackage" },
+        tif: { kind: "raster", ext: "geotiff", contentType: "image/tiff", label: "GeoTIFF" },
+        tiff: { kind: "raster", ext: "geotiff", contentType: "image/tiff", label: "GeoTIFF" }
+      };
+      const detectFormat = name => FORMATS[name.toLowerCase().split(".").pop()] || null;
+
+      function sanitizeName(base) {
+        return base.toLowerCase()
+          .normalize("NFD").replace(/[̀-ͯ]/g, "")   // remove acentos
+          .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "camada";
+      }
+
+      function timestamp() {
+        const d = new Date(), p = n => String(n).padStart(2, "0");
+        return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+      }
+
+      function humanSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / 1048576).toFixed(1) + " MB";
+      }
+
+      // ── Auth: header privado, senha não retida após o handshake ───────────
+      const Auth = (() => {
+        let authHeader = null;
+        let baseUrl = "";
+
+        async function connect(rawUrl, user, pass) {
+          const url = rawUrl.trim().replace(/\/+$/, "");
+          const header = "Basic " + toBase64Utf8(`${user}:${pass}`);
+
+          // Handshake leve: lista workspaces (valida credencial e já serve de fonte)
+          const res = await fetch(`${url}/rest/workspaces.json`, {
+            headers: { "Authorization": header, "Accept": "application/json" }
+          });
+          if (!res.ok) {
+            throw new Error(res.status === 401
+              ? "Credenciais inválidas (401). Verifique usuário e senha."
+              : `Falha na conexão (HTTP ${res.status}). Verifique a URL base.`);
+          }
+          const data = await res.json();
+
+          authHeader = header;
+          baseUrl = url;
+          return data;
+        }
+
+        function disconnect() { authHeader = null; baseUrl = ""; }
+        return { connect, disconnect, getHeader: () => authHeader, getBase: () => baseUrl };
+      })();
+
+      // ── Client: REST autenticado + guarda de geração (descarta respostas
+      //    que chegam depois de um logout) ───────────────────────────────────
+      const Client = (() => {
+        let fetchGeneration = 0;
+        const bump = () => { fetchGeneration++; };
+
+        async function rest(path, options = {}) {
+          const auth = Auth.getHeader();
+          if (!auth) throw new Error("Não autenticado no GeoServer.");
+          const gen = fetchGeneration;
+
+          const res = await fetch(`${Auth.getBase()}${path}`, {
+            ...options,
+            headers: { "Authorization": auth, "Accept": "application/json", ...(options.headers || {}) }
+          });
+
+          if (gen !== fetchGeneration) return null; // contexto mudou → descarta
+
+          const body = await res.text();
+          if (!res.ok) {
+            const trimmed = (body || "").trim().slice(0, 600);
+            throw new Error(`GeoServer respondeu HTTP ${res.status}.` + (trimmed ? `\n\n${trimmed}` : ""));
+          }
+          try { return body ? JSON.parse(body) : null; }
+          catch { return body; }
+        }
+
+        // PUT binário com progresso (XHR — fetch não expõe upload.onprogress)
+        function upload(path, file, contentType, onProgress) {
+          return new Promise((resolve, reject) => {
+            const auth = Auth.getHeader();
+            if (!auth) { reject(new Error("Não autenticado no GeoServer.")); return; }
+            const gen = fetchGeneration;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", `${Auth.getBase()}${path}`);
+            xhr.setRequestHeader("Authorization", auth);
+            xhr.setRequestHeader("Content-Type", contentType);
+
+            xhr.upload.onprogress = (e) => {
+              if (gen !== fetchGeneration) return;
+              if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+            };
+            xhr.onload = () => {
+              if (gen !== fetchGeneration) { resolve(null); return; }
+              if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
+              else {
+                const t = (xhr.responseText || "").trim().slice(0, 600);
+                reject(new Error(`GeoServer respondeu HTTP ${xhr.status}.` + (t ? `\n\n${t}` : "")));
+              }
+            };
+            xhr.onerror = () => reject(new Error("Erro de rede ao enviar o arquivo (possível CORS ou servidor inacessível)."));
+            xhr.send(file);
+          });
+        }
+
+        return { rest, upload, bump };
+      })();
+
+      // ── estado de UI ───────────────────────────────────────────────────────
+      let currentFile = null;
+      let currentFormat = null;
+      let gpkgContext = null;
+      let publishState = "idle"; // 'idle' | 'loading' | 'success' | 'error'
+
+      function setPublishState(state) {
+        publishState = state;
+        const btn = $("publish-btn");
+
+        // Remove state-specific classes
+        btn.classList.remove("danger-btn", "loading");
+        btn.disabled = false;
+
+        if (state === "idle") {
+          btn.innerHTML = "Publicar";
+          btn.classList.add("btn");
+          btn.disabled = !currentFile;
+        } else if (state === "loading") {
+          btn.innerHTML = `<span class="spinner"></span> Publicando…`;
+          btn.classList.add("btn", "loading");
+          btn.disabled = true;
+        } else if (state === "success") {
+          btn.innerHTML = "Limpar e Nova Publicação";
+          btn.classList.add("btn");
+        } else if (state === "error") {
+          btn.innerHTML = "Tentar Novamente";
+          btn.classList.add("btn", "danger-btn");
+        }
+      }
+
+      // ── login / logout ─────────────────────────────────────────────────────
+      function updateClearUrlBtn() {
+        if ($("url").value.trim()) {
+          $("btn-clear-url").style.display = "flex";
+        } else {
+          $("btn-clear-url").style.display = "none";
+        }
+      }
+
+      $("url").addEventListener("input", () => {
+        updateClearUrlBtn();
+        localStorage.setItem("geoserver_url_base", $("url").value.trim());
+      });
+
+      $("btn-clear-url").addEventListener("click", () => {
+        $("url").value = "";
+        updateClearUrlBtn();
+        localStorage.setItem("geoserver_url_base", "");
+        $("url").focus();
+      });
+
+      $("login-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = $("login-btn");
+        hide($("login-error"));
+
+        setBusy(btn, true, "Conectando…");
+        try {
+          Client.bump();
+          const data = await Auth.connect($("url").value, $("user").value, $("pass").value);
+          $("pass").value = ""; // limpa o campo de senha da UI
+          localStorage.setItem("geoserver_url_base", $("url").value.trim());
+
+          populateWorkspaces(data);
+          $("conn-url").textContent = Auth.getBase();
+          hide($("screen-login"));
+          show($("screen-publish"));
+          document.body.classList.remove("login-state");
+        } catch (err) {
+          showMsg($("login-error"), err.message);
+        } finally {
+          setBusy(btn, false, "Conectar");
+        }
+      });
+
+      $("logout-btn").addEventListener("click", () => {
+        Client.bump();
+        Auth.disconnect();
+        resetPublishUI();
+        $("workspace").innerHTML = "";
+        $("login-form").reset();
+        const savedUrl = localStorage.getItem("geoserver_url_base");
+        if (savedUrl) {
+          $("url").value = savedUrl;
+        }
+        updateClearUrlBtn();
+        hide($("screen-publish"));
+        show($("screen-login"));
+        document.body.classList.add("login-state");
+      });
+
+      function populateWorkspaces(data) {
+        const sel = $("workspace");
+        sel.innerHTML = "";
+        let list = (data && data.workspaces && data.workspaces.workspace) || [];
+        if (!Array.isArray(list)) list = [list]; // GeoServer devolve objeto único quando há só 1
+
+        if (list.length === 0) {
+          const opt = document.createElement("option");
+          opt.value = ""; opt.textContent = "Nenhum workspace encontrado";
+          opt.disabled = true; sel.appendChild(opt);
+          return;
+        }
+        for (const ws of list) {
+          const opt = document.createElement("option");
+          opt.value = ws.name; opt.textContent = ws.name;
+          sel.appendChild(opt);
+        }
+      }
+
+      // ── seleção de arquivo ─────────────────────────────────────────────────
+      const filebox = $("filebox");
+      $("file").addEventListener("change", e => handleFile(e.target.files[0]));
+      ["dragenter", "dragover"].forEach(ev => filebox.addEventListener(ev, e => { e.preventDefault(); filebox.classList.add("drag"); }));
+      ["dragleave", "drop"].forEach(ev => filebox.addEventListener(ev, e => { e.preventDefault(); filebox.classList.remove("drag"); }));
+      filebox.addEventListener("drop", e => {
+        const f = e.dataTransfer.files[0];
+        if (f) { $("file").files = e.dataTransfer.files; handleFile(f); }
+      });
+
+      $("file-clear").addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearFileSelection();
+      });
+
+      function handleFile(file) {
+        if (!file) return;
+        const fmt = detectFormat(file.name);
+        hide($("publish-error"));
+        hide($("publish-info"));
+
+        if (!fmt) {
+          showMsg($("publish-error"), `Formato não suportado: "${file.name}". Use .zip (Shapefile), .gpkg, .tif ou .tiff.`);
+          return;
+        }
+        currentFile = file;
+        currentFormat = fmt;
+
+        $("file-name").textContent = file.name;
+        $("file-meta").textContent = `${humanSize(file.size)} · ${fmt.label}`;
+        hide($("file-empty")); show($("file-chosen"));
+        show($("file-clear"));
+
+        // Sugere nome: base do arquivo + timestamp
+        const base = file.name.replace(/\.[^.]+$/, "");
+        $("storename").value = `${sanitizeName(base)}_${timestamp()}`;
+        $("storename").disabled = false;
+
+        setPublishState("idle");
+      }
+
+      // ── publicar ───────────────────────────────────────────────────────────
+      $("publish-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (publishState === "success") {
+          resetPublishUI();
+          return;
+        }
+
+        hide($("publish-error")); hide($("publish-info"));
+        $("results").innerHTML = ""; hide($("picker-wrap"));
+
+        if (!currentFile || !currentFormat) {
+          showMsg($("publish-error"), "Selecione um arquivo antes de publicar.");
+          return;
+        }
+        const ws = $("workspace").value;
+        const store = sanitizeName($("storename").value);
+        if (!ws) { showMsg($("publish-error"), "Selecione um workspace."); return; }
+
+        setPublishState("loading");
+        showProgress(0);
+
+        try {
+          if (currentFormat.kind === "raster") {
+            await publishRaster(ws, store);
+            setPublishState("success");
+          } else if (currentFormat.kind === "gpkg") {
+            const done = await publishGeoPackage(ws, store);
+            if (done) setPublishState("success");
+            else setPublishState("idle");
+          } else {
+            await publishVector(ws, store);
+            setPublishState("success");
+          }
+        } catch (err) {
+          showMsg($("publish-error"), err.message);
+          setPublishState("error");
+        } finally {
+          hideProgress();
+        }
+      });
+
+      /* Vetor (shapefile zip): PUT configure=first */
+      async function publishVector(ws, store) {
+        const path = `/rest/workspaces/${ws}/datastores/${store}/file.${currentFormat.ext}?configure=first`;
+        await Client.upload(path, currentFile, currentFormat.contentType, showProgress);
+        showProgress(100);
+
+        // Descobre a camada realmente publicada (o nome vem do conteúdo do arquivo)
+        const ft = await Client.rest(`/rest/workspaces/${ws}/datastores/${store}/featuretypes.json`);
+        const names = extractList(ft, "featureTypes", "featureType");
+        if (names.length === 0) throw new Error("Arquivo enviado, mas nenhuma camada foi configurada pelo GeoServer.");
+
+        for (const name of names) await renderVectorResult(ws, store, name);
+      }
+
+      /* Raster (geotiff): PUT configure=first em coveragestores */
+      async function publishRaster(ws, store) {
+        const path = `/rest/workspaces/${ws}/coveragestores/${store}/file.geotiff?configure=first`;
+        await Client.upload(path, currentFile, currentFormat.contentType, showProgress);
+        showProgress(100);
+
+        const cov = await Client.rest(`/rest/workspaces/${ws}/coveragestores/${store}/coverages.json`);
+        const names = extractList(cov, "coverages", "coverage");
+        if (names.length === 0) throw new Error("Arquivo enviado, mas nenhuma cobertura foi configurada pelo GeoServer.");
+
+        for (const name of names) await renderRasterResult(ws, store, name);
+      }
+
+      /* GeoPackage: PUT configure=none → lista tabelas → escolhe → POST */
+      async function publishGeoPackage(ws, store) {
+        const path = `/rest/workspaces/${ws}/datastores/${store}/file.gpkg?configure=none`;
+        await Client.upload(path, currentFile, currentFormat.contentType, showProgress);
+        showProgress(100);
+
+        const avail = await Client.rest(`/rest/workspaces/${ws}/datastores/${store}/featuretypes.json?list=available`);
+        const tables = extractList(avail, "list", "string");
+        if (tables.length === 0) throw new Error("GeoPackage enviado, mas nenhuma camada vetorial foi encontrada dentro dele.");
+
+        if (tables.length === 1) {
+          await publishGpkgTables(ws, store, tables, store);
+          return true;
+        }
+
+        // Múltiplas tabelas → mostra picker
+        gpkgContext = { ws, store };
+        renderPicker(tables);
+        showMsg($("publish-info"), `Este GeoPackage contém ${tables.length} camadas. Escolha quais publicar.`);
+        return false;
+      }
+
+      function renderPicker(tables) {
+        const listEl = $("picker-list");
+        listEl.innerHTML = "";
+        for (const t of tables) {
+          const lab = document.createElement("label");
+          lab.className = "opt";
+          const cb = document.createElement("input");
+          cb.type = "checkbox"; cb.value = t; cb.checked = true;
+          const span = document.createElement("span");
+          span.textContent = t;
+          lab.append(cb, span);
+          listEl.appendChild(lab);
+        }
+        show($("picker-wrap"));
+      }
+
+      $("picker-confirm").addEventListener("click", async () => {
+        if (!gpkgContext) return;
+        const checked = [...document.querySelectorAll("#picker-list input:checked")].map(i => i.value);
+        if (checked.length === 0) { showMsg($("publish-error"), "Selecione ao menos uma camada."); return; }
+
+        const btn = $("picker-confirm");
+        setBusy(btn, true, "Publicando…");
+        hide($("publish-error")); hide($("publish-info"));
+        $("results").innerHTML = "";
+        try {
+          await publishGpkgTables(gpkgContext.ws, gpkgContext.store, checked, gpkgContext.store);
+          hide($("picker-wrap"));
+          setPublishState("success");
+        } catch (err) {
+          showMsg($("publish-error"), err.message);
+          setPublishState("error");
+        } finally {
+          setBusy(btn, false, "Publicar selecionadas");
+        }
+      });
+
+      // POST de cada featuretype escolhida (nome publicado = base, ou base_tabela se houver várias)
+      async function publishGpkgTables(ws, store, tables, base) {
+        const multi = tables.length > 1;
+        for (const table of tables) {
+          const published = multi ? `${base}_${sanitizeName(table)}` : base;
+          const payload = { featureType: { name: published, nativeName: table } };
+          await Client.rest(`/rest/workspaces/${ws}/datastores/${store}/featuretypes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          await renderVectorResult(ws, store, published);
+        }
+      }
+
+      // ── resultados ─────────────────────────────────────────────────────────
+      async function renderVectorResult(ws, store, layer) {
+        const detail = await Client.rest(`/rest/workspaces/${ws}/datastores/${store}/featuretypes/${encodeURIComponent(layer)}.json`);
+        appendResultCard(ws, layer, (detail && detail.featureType) || {});
+      }
+      async function renderRasterResult(ws, store, layer) {
+        const detail = await Client.rest(`/rest/workspaces/${ws}/coveragestores/${store}/coverages/${encodeURIComponent(layer)}.json`);
+        appendResultCard(ws, layer, (detail && detail.coverage) || {});
+      }
+
+      // Link do visualizador OpenLayers nativo (sempre em EPSG:4326, que toda camada expõe)
+      function buildViewerUrl(ws, layer, info) {
+        const b = info.latLonBoundingBox;
+        const bbox = (b && b.minx != null) ? `${b.minx},${b.miny},${b.maxx},${b.maxy}` : "-180,-90,180,90";
+        const params = new URLSearchParams({
+          service: "WMS", version: "1.1.0", request: "GetMap",
+          layers: `${ws}:${layer}`, bbox, width: "768", height: "637",
+          srs: "EPSG:4326", styles: "", format: "application/openlayers"
+        });
+        return `${Auth.getBase()}/${ws}/wms?${params}`;
+      }
+
+      function appendResultCard(ws, layer, info) {
+        const card = document.createElement("a");
+        card.className = "result link-sucesso";
+        card.target = "_blank";
+        card.rel = "noopener";
+        card.href = buildViewerUrl(ws, layer, info);
+        card.innerHTML =
+          `<div class="ok">` +
+          `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>` +
+          `<span>Sucesso! Ver a camada: <strong class="layer-name"></strong></span>` +
+          `</div>`;
+        card.querySelector(".layer-name").textContent = `${ws}:${layer}`;
+        $("results").appendChild(card);
+      }
+
+      function clearFileSelection() {
+        $("file").value = "";
+        currentFile = null;
+        currentFormat = null;
+        hide($("file-chosen"));
+        show($("file-empty"));
+        hide($("file-clear"));
+        $("storename").value = "";
+        $("storename").disabled = true;
+        setPublishState("idle");
+        hide($("publish-error"));
+        hide($("publish-info"));
+        $("results").innerHTML = "";
+        hide($("picker-wrap"));
+      }
+
+      function resetPublishUI() {
+        $("publish-form").reset();
+        $("results").innerHTML = "";
+        hide($("picker-wrap"));
+        hide($("publish-error")); hide($("publish-info"));
+        hide($("file-chosen")); show($("file-empty"));
+        hide($("file-clear"));
+        currentFile = null; currentFormat = null; gpkgContext = null;
+        $("storename").disabled = true;
+        setPublishState("idle");
+      }
+
+      // ── helpers de UI ──────────────────────────────────────────────────────
+      function setBusy(btn, busy, label) {
+        btn.disabled = busy;
+        btn.innerHTML = busy ? `<span class="spinner"></span> ${label}` : label;
+        if (busy) {
+          btn.classList.add("loading");
+        } else {
+          btn.classList.remove("loading");
+        }
+      }
+      function showProgress(pct) {
+        show($("progress"));
+        $("progress-bar").style.width = pct + "%";
+        $("progress-pct").textContent = pct >= 100 ? "Configurando no GeoServer…" : `Enviando… ${pct}%`;
+      }
+      function hideProgress() { hide($("progress")); $("progress-bar").style.width = "0"; }
+
+      /* Normaliza listas do GeoServer que podem vir como objeto único, array, ou "" */
+      function extractList(data, parentKey, childKey) {
+        if (!data) return [];
+        const parent = data[parentKey];
+        if (parent === "" || parent == null) return [];
+        let child = parent[childKey];
+        if (child == null) return [];
+        if (!Array.isArray(child)) child = [child];
+        return child.map(x => (typeof x === "string" ? x : x.name)).filter(Boolean);
+      }
+
+      const savedUrl = localStorage.getItem("geoserver_url_base");
+      if (savedUrl) {
+        $("url").value = savedUrl;
+      }
+      updateClearUrlBtn();
+
+      resetPublishUI();
+    })();
+  </script>
+</body>
+
+</html>
